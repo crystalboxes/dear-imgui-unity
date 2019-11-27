@@ -1,0 +1,79 @@
+From 1f93d450eea9cbcd4b205a179fcff6473708fc43 Mon Sep 17 00:00:00 2001
+From: crystalboxes <ursus95@gmail.com>
+Date: Wed, 27 Nov 2019 23:26:15 +0200
+Subject: [PATCH] patching
+
+---
+ src/ImGui.NET/Generated/ImDrawChannel.gen.cs | 2 +-
+ src/ImGui.NET/Generated/ImDrawList.gen.cs    | 8 ++++----
+ src/ImGui.NET/Generated/ImGuiNative.gen.cs   | 2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/src/ImGui.NET/Generated/ImDrawChannel.gen.cs b/src/ImGui.NET/Generated/ImDrawChannel.gen.cs
+index 850df76..5a0c8d7 100644
+--- a/src/ImGui.NET/Generated/ImDrawChannel.gen.cs
++++ b/src/ImGui.NET/Generated/ImDrawChannel.gen.cs
+@@ -19,6 +19,6 @@ namespace ImGuiNET
+         public static implicit operator ImDrawChannel* (ImDrawChannelPtr wrappedPtr) => wrappedPtr.NativePtr;
+         public static implicit operator ImDrawChannelPtr(IntPtr nativePtr) => new ImDrawChannelPtr(nativePtr);
+         public ImPtrVector<ImDrawCmdPtr> _CmdBuffer => new ImPtrVector<ImDrawCmdPtr>(NativePtr->_CmdBuffer, Unsafe.SizeOf<ImDrawCmd>());
+-        public ImVector<ushort> _IdxBuffer => new ImVector<ushort>(NativePtr->_IdxBuffer);
++        public ImVector<uint> _IdxBuffer => new ImVector<uint>(NativePtr->_IdxBuffer);
+     }
+ }
+diff --git a/src/ImGui.NET/Generated/ImDrawList.gen.cs b/src/ImGui.NET/Generated/ImDrawList.gen.cs
+index 5052324..a533f4b 100644
+--- a/src/ImGui.NET/Generated/ImDrawList.gen.cs
++++ b/src/ImGui.NET/Generated/ImDrawList.gen.cs
+@@ -16,7 +16,7 @@ namespace ImGuiNET
+         public uint _VtxCurrentOffset;
+         public uint _VtxCurrentIdx;
+         public ImDrawVert* _VtxWritePtr;
+-        public ushort* _IdxWritePtr;
++        public uint* _IdxWritePtr;
+         public ImVector _ClipRectStack;
+         public ImVector _TextureIdStack;
+         public ImVector _Path;
+@@ -31,7 +31,7 @@ namespace ImGuiNET
+         public static implicit operator ImDrawList* (ImDrawListPtr wrappedPtr) => wrappedPtr.NativePtr;
+         public static implicit operator ImDrawListPtr(IntPtr nativePtr) => new ImDrawListPtr(nativePtr);
+         public ImPtrVector<ImDrawCmdPtr> CmdBuffer => new ImPtrVector<ImDrawCmdPtr>(NativePtr->CmdBuffer, Unsafe.SizeOf<ImDrawCmd>());
+-        public ImVector<ushort> IdxBuffer => new ImVector<ushort>(NativePtr->IdxBuffer);
++        public ImVector<uint> IdxBuffer => new ImVector<uint>(NativePtr->IdxBuffer);
+         public ImPtrVector<ImDrawVertPtr> VtxBuffer => new ImPtrVector<ImDrawVertPtr>(NativePtr->VtxBuffer, Unsafe.SizeOf<ImDrawVert>());
+         public ref ImDrawListFlags Flags => ref Unsafe.AsRef<ImDrawListFlags>(&NativePtr->Flags);
+         public ref IntPtr _Data => ref Unsafe.AsRef<IntPtr>(&NativePtr->_Data);
+@@ -39,7 +39,7 @@ namespace ImGuiNET
+         public ref uint _VtxCurrentOffset => ref Unsafe.AsRef<uint>(&NativePtr->_VtxCurrentOffset);
+         public ref uint _VtxCurrentIdx => ref Unsafe.AsRef<uint>(&NativePtr->_VtxCurrentIdx);
+         public ImDrawVertPtr _VtxWritePtr => new ImDrawVertPtr(NativePtr->_VtxWritePtr);
+-        public IntPtr _IdxWritePtr { get => (IntPtr)NativePtr->_IdxWritePtr; set => NativePtr->_IdxWritePtr = (ushort*)value; }
++        public IntPtr _IdxWritePtr { get => (IntPtr)NativePtr->_IdxWritePtr; set => NativePtr->_IdxWritePtr = (uint*)value; }
+         public ImVector<Vector4> _ClipRectStack => new ImVector<Vector4>(NativePtr->_ClipRectStack);
+         public ImVector<IntPtr> _TextureIdStack => new ImVector<IntPtr>(NativePtr->_TextureIdStack);
+         public ImVector<Vector2> _Path => new ImVector<Vector2>(NativePtr->_Path);
+@@ -378,7 +378,7 @@ namespace ImGuiNET
+         {
+             ImGuiNative.ImDrawList_PrimVtx(NativePtr, pos, uv, col);
+         }
+-        public void PrimWriteIdx(ushort idx)
++        public void PrimWriteIdx(uint idx)
+         {
+             ImGuiNative.ImDrawList_PrimWriteIdx(NativePtr, idx);
+         }
+diff --git a/src/ImGui.NET/Generated/ImGuiNative.gen.cs b/src/ImGui.NET/Generated/ImGuiNative.gen.cs
+index 25bb76b..109d949 100644
+--- a/src/ImGui.NET/Generated/ImGuiNative.gen.cs
++++ b/src/ImGui.NET/Generated/ImGuiNative.gen.cs
+@@ -791,7 +791,7 @@ namespace ImGuiNET
+         [DllImport("cimgui", CallingConvention = CallingConvention.Cdecl)]
+         public static extern void ImDrawList_PrimVtx(ImDrawList* self, Vector2 pos, Vector2 uv, uint col);
+         [DllImport("cimgui", CallingConvention = CallingConvention.Cdecl)]
+-        public static extern void ImDrawList_PrimWriteIdx(ImDrawList* self, ushort idx);
++        public static extern void ImDrawList_PrimWriteIdx(ImDrawList* self, uint idx);
+         [DllImport("cimgui", CallingConvention = CallingConvention.Cdecl)]
+         public static extern void ImDrawList_PrimWriteVtx(ImDrawList* self, Vector2 pos, Vector2 uv, uint col);
+         [DllImport("cimgui", CallingConvention = CallingConvention.Cdecl)]
+-- 
+2.20.1.windows.1
+
