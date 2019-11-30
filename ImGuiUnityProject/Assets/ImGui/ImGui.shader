@@ -8,7 +8,7 @@
     {
         Tags {"Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent"}
         ZWrite Off
-        Blend SrcAlpha OneMinusSrcAlpha
+        Blend SrcAlpha OneMinusSrcAlpha, OneMinusSrcAlpha Zero
         Cull Off 
 
         Pass
@@ -82,9 +82,7 @@
 
             fixed4 frag (v2f i) : SV_Target
             {
-                // sample the texture
-                fixed4 col = i.color * tex2D(_MainTex, i.uv).bbbb;
-                return col;
+                return i.color * tex2D(_MainTex, i.uv).bbbb;
             }
             ENDCG
         }

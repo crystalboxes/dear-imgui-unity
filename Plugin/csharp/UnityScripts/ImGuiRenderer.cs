@@ -2,236 +2,262 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Runtime.InteropServices;
+using System.Collections;
 
 namespace ImGuiNET.Unity
 {
-
-  public class ImGuiRenderer
+  public static class ImGuiPlugin
   {
-    public void Finish()
+    public struct IOState
     {
-      _vertexBufferPinned.Release();
-      _indexBufferPinned.Release();
+      public float Time;
+      public int KeyShift;
+      public int KeyCtrl;
+      public int KeyAlt;
+      public int KeySuper;
+      public float DisplaySizeX;
+      public float DisplaySizeY;
+      public float DisplayFramebufferSizeX;
+      public float DisplayFramebufferSizeY;
+      public float MousePosX;
+      public float MousePosY;
+      public int MouseDown0;
+      public int MouseDown1;
+      public int MouseDown2;
+      public float MouseWheel;
     }
 
-    private MonoBehaviour _game;
+    [DllImport("ImGuiUnity")]
+    public static extern void UpdateImGuiIO(ref IOState state);
 
-    ComputeBufferPinned _vertexBufferPinned;
-    ComputeBufferPinned _indexBufferPinned;
+    [DllImport("ImGuiUnity")]
+    public static extern void UploadKeyMap(int[] keyMap, int length);
 
-    // Textures
-    private Dictionary<IntPtr, Texture2D> _loadedTextures;
+    [DllImport("ImGuiUnity")]
+    public static extern void UploadKeyDownStates(int[] keyDown, int length);
 
-    private int _textureId;
-    private IntPtr? _fontTextureId;
+    [DllImport("ImGuiUnity")]
+    public static extern IntPtr GetRenderEventFunc();
+  }
 
-    // Input
-    private List<int> _keys = new List<int>();
-
-    Material _material;
-    MaterialPropertyBlock _props;
-
-    public ImGuiRenderer(MonoBehaviour game)
+  class ImGuiIOController
+  {
+    PinnedArray<int> _keyMap;
+    PinnedArray<int> _keyDown;
+    int[] _unityKeyMap;
+    public ImGuiIOController()
     {
-
-
       var context = ImGui.CreateContext();
       ImGui.SetCurrentContext(context);
-
 
       var io = ImGui.GetIO();
       io.ConfigFlags |= ImGuiConfigFlags.NavEnableSetMousePos;
       io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
 
-      io.BackendFlags |= ImGuiBackendFlags.HasMouseCursors;         // We can honor GetMouseCursor() values (optional)
-      io.BackendFlags |= ImGuiBackendFlags.HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
+      io.BackendFlags |= ImGuiBackendFlags.HasMouseCursors;
+      io.BackendFlags |= ImGuiBackendFlags.HasSetMousePos;
 
 
-      _game = game ?? throw new ArgumentNullException(nameof(game));
+      var iterator = Enum.GetValues(typeof(KeyCode));
+      var totalKeyCodes = iterator.Length;
 
+      _keyDown = new PinnedArray<int>(totalKeyCodes);
+      _unityKeyMap = new int[totalKeyCodes];
+      _keyMap = new PinnedArray<int>((int)ImGuiKey.COUNT);
+
+      var index = 0;
+      foreach (var key in iterator)
+      {
+        _unityKeyMap[index++] = (int)key;
+      }
+
+      _keyMap[(int)ImGuiKey.Tab] = (int)KeyCode.Tab;
+      _keyMap[(int)ImGuiKey.LeftArrow] = (int)KeyCode.LeftArrow;
+      _keyMap[(int)ImGuiKey.RightArrow] = (int)KeyCode.RightArrow;
+      _keyMap[(int)ImGuiKey.UpArrow] = (int)KeyCode.UpArrow;
+      _keyMap[(int)ImGuiKey.DownArrow] = (int)KeyCode.DownArrow;
+      _keyMap[(int)ImGuiKey.PageUp] = (int)KeyCode.PageUp;
+      _keyMap[(int)ImGuiKey.PageDown] = (int)KeyCode.PageDown;
+      _keyMap[(int)ImGuiKey.Home] = (int)KeyCode.Home;
+      _keyMap[(int)ImGuiKey.End] = (int)KeyCode.End;
+      _keyMap[(int)ImGuiKey.Delete] = (int)KeyCode.Delete;
+      _keyMap[(int)ImGuiKey.Backspace] = (int)KeyCode.Backspace;
+      _keyMap[(int)ImGuiKey.Enter] = (int)KeyCode.Return;
+      _keyMap[(int)ImGuiKey.Escape] = (int)KeyCode.Escape;
+      _keyMap[(int)ImGuiKey.A] = (int)KeyCode.A;
+      _keyMap[(int)ImGuiKey.C] = (int)KeyCode.C;
+      _keyMap[(int)ImGuiKey.V] = (int)KeyCode.V;
+      _keyMap[(int)ImGuiKey.X] = (int)KeyCode.X;
+      _keyMap[(int)ImGuiKey.Y] = (int)KeyCode.Y;
+      _keyMap[(int)ImGuiKey.Z] = (int)KeyCode.Z;
+      ImGuiPlugin.UploadKeyMap(_keyMap.Array, _keyMap.Length);
+
+      ImGui.GetIO().Fonts.AddFontDefault();
+
+      unsafe
+      {
+        io.Fonts.GetTexDataAsRGBA32(out byte* pixelData, out int width, out int height, out int bytesPerPixel);
+        io.Fonts.ClearTexData();
+      }
+    }
+
+    public void UpdateInput()
+    {
+      for (int i = 0; i < _keyDown.Length; i++)
+      {
+        _keyDown[i] = Input.GetKey((KeyCode)_unityKeyMap[i]) ? 1 : 0;
+      }
+      ImGuiPlugin.UploadKeyDownStates(_keyDown.Array, _keyDown.Length);
+
+      var mouseWheel = Input.GetAxis("Mouse ScrollWheel");
+      var state = new ImGuiPlugin.IOState()
+      {
+        Time = Time.deltaTime,
+        KeyShift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1 : 0,
+        KeyCtrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ? 1 : 0,
+        KeyAlt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt) ? 1 : 0,
+        KeySuper = Input.GetKey(KeyCode.LeftWindows) || Input.GetKey(KeyCode.RightWindows) ? 1 : 0,
+        DisplaySizeX = Screen.width,
+        DisplaySizeY = Screen.height,
+        DisplayFramebufferSizeX = 1f,
+        DisplayFramebufferSizeY = 1f,
+        MousePosX = Input.mousePosition.x,
+        MousePosY = Screen.height - Input.mousePosition.y,
+        MouseDown0 = Input.GetMouseButton(0) ? 1 : 0,
+        MouseDown1 = Input.GetMouseButton(1) ? 1 : 0,
+        MouseDown2 = Input.GetMouseButton(2) ? 1 : 0,
+        MouseWheel = mouseWheel > 0 ? 1 : mouseWheel < 0 ? -1 : 0,
+      };
+
+      ImGuiPlugin.UpdateImGuiIO(ref state);
+    }
+
+    public void Free()
+    {
+      _keyMap.Release();
+      _keyDown.Release();
+    }
+  }
+
+  public abstract class ImGuiRendererBase : IImGuiRenderer
+  {
+    ImGuiIOController _ioController;
+
+    public ImGuiRendererBase()
+    {
+      _ioController = new ImGuiIOController();
+    }
+
+    public virtual void Finish()
+    {
+      _ioController.Free();
+    }
+
+    public virtual void BeforeLayout()
+    {
+      _ioController.UpdateInput();
+      ImGui.NewFrame();
+    }
+
+    public virtual void AfterLayout()
+    {
+      ImGui.Render();
+    }
+  }
+
+  public class ImGuiRendererUnity : ImGuiRendererBase
+  {
+
+    ComputeBufferPinned _vertexBufferPinned;
+    ComputeBufferPinned _indexBufferPinned;
+
+    private Dictionary<IntPtr, Texture2D> _loadedTextures;
+
+    private int _textureId;
+    private IntPtr? _fontTextureId;
+
+    Material _material;
+    MaterialPropertyBlock _props;
+
+
+    public ImGuiRendererUnity() : base()
+    {
       _material = new Material(Shader.Find("UI/ImGui"));
       _props = new MaterialPropertyBlock();
 
       _loadedTextures = new Dictionary<IntPtr, Texture2D>();
 
-      SetupInput();
+      unsafe { RebuildFontAtlas(); }
     }
 
-    #region ImGuiRenderer
+    public override void Finish()
+    {
+      base.Finish();
 
-    /// <summary>
-    /// Creates a texture and loads the font data from ImGui. Should be called when the <see cref="GraphicsDevice" /> is initialized but before any rendering is done
-    /// </summary>
+      if (_vertexBufferPinned != null)
+        _vertexBufferPinned.Release();
+      if (_indexBufferPinned != null)
+        _indexBufferPinned.Release();
+    }
+
     public unsafe void RebuildFontAtlas()
     {
-      // Get font texture from ImGui
       var io = ImGui.GetIO();
       io.Fonts.GetTexDataAsRGBA32(out byte* pixelData, out int width, out int height, out int bytesPerPixel);
 
-      // Copy the data to a managed array
       var pixels = new byte[width * height * bytesPerPixel];
       unsafe { Marshal.Copy(new IntPtr(pixelData), pixels, 0, pixels.Length); }
 
-      // Create and register the texture as an XNA texture
       var tex2d = new Texture2D(width, height, TextureFormat.ARGB32, false);
       tex2d.SetPixelData(pixels, 0);
-      // tex2d.filterMode = FilterMode.Point;
       tex2d.Apply();
 
-      // Should a texture already have been build previously, unbind it first so it can be deallocated
-      if (_fontTextureId.HasValue) UnbindTexture(_fontTextureId.Value);
+      if (_fontTextureId.HasValue)
+        UnbindTexture(_fontTextureId.Value);
 
-      // Bind the new texture to an ImGui-friendly id
       _fontTextureId = BindTexture(tex2d);
 
-      // Let ImGui know where to find the texture
       io.Fonts.SetTexID(_fontTextureId.Value);
-      io.Fonts.ClearTexData(); // Clears CPU side texture data
+      io.Fonts.ClearTexData();
     }
 
-    /// <summary>
-    /// Creates a pointer to a texture, which can be passed through ImGui calls such as <see cref="ImGui.Image" />. That pointer is then used by ImGui to let us know what texture to draw
-    /// </summary>
     public IntPtr BindTexture(Texture2D texture)
     {
       var id = new IntPtr(_textureId++);
-
       _loadedTextures.Add(id, texture);
-
       return id;
     }
 
-    /// <summary>
-    /// Removes a previously created texture pointer, releasing its reference and allowing it to be deallocated
-    /// </summary>
     public void UnbindTexture(IntPtr textureId)
     {
       _loadedTextures.Remove(textureId);
     }
 
-    /// <summary>
-    /// Sets up ImGui for a new frame, should be called at frame start
-    /// </summary>
-    public void BeforeLayout()
+    public override void AfterLayout()
     {
-      ImGui.GetIO().DeltaTime = Time.deltaTime;
-      // ImGui.GetIO().BackendFlags = ImGuiBackendFlags.HasSetMousePos;
-
-
-      UpdateInput();
-
-      ImGui.NewFrame();
-    }
-
-    /// <summary>
-    /// Asks ImGui for the generated geometry data and sends it to the graphics pipeline, should be called after the UI is drawn using ImGui.** calls
-    /// </summary>
-    public void AfterLayout()
-    {
-      ImGui.Render();
-
+      base.AfterLayout();
       unsafe { RenderDrawData(ImGui.GetDrawData()); }
     }
 
-    #endregion ImGuiRenderer
-
-    #region Setup & Update
-
-    /// <summary>
-    /// Maps ImGui keys to XNA keys. We use this later on to tell ImGui what keys were pressed
-    /// </summary>
-    void SetupInput()
+    void RenderDrawData(ImDrawDataPtr drawData)
     {
-      var io = ImGui.GetIO();
-
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Tab] = (int)KeyCode.Tab);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.LeftArrow] = (int)KeyCode.LeftArrow);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.RightArrow] = (int)KeyCode.RightArrow);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.UpArrow] = (int)KeyCode.UpArrow);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.DownArrow] = (int)KeyCode.DownArrow);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.PageUp] = (int)KeyCode.PageUp);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.PageDown] = (int)KeyCode.PageDown);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Home] = (int)KeyCode.Home);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.End] = (int)KeyCode.End);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Delete] = (int)KeyCode.Delete);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Backspace] = (int)KeyCode.Backspace);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Enter] = (int)KeyCode.Return);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Escape] = (int)KeyCode.Escape);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.A] = (int)KeyCode.A);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.C] = (int)KeyCode.C);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.V] = (int)KeyCode.V);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.X] = (int)KeyCode.X);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Y] = (int)KeyCode.Y);
-      _keys.Add(io.KeyMap[(int)ImGuiKey.Z] = (int)KeyCode.Z);
-
-
-      ImGui.GetIO().Fonts.AddFontDefault();
-    }
-
-    /// <summary>
-    /// Updates the <see cref="Effect" /> to the current matrices and texture
-    /// </summary>
-    void UpdateInput()
-    {
-      var io = ImGui.GetIO();
-
-      for (int i = 0; i < _keys.Count; i++)
-      {
-        io.KeysDown[_keys[i]] = Input.GetKeyDown((KeyCode)_keys[i]);
-      }
-
-      io.KeyShift = Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.RightShift);
-      io.KeyCtrl = Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.RightControl);
-      io.KeyAlt = Input.GetKeyDown(KeyCode.LeftAlt) || Input.GetKeyDown(KeyCode.RightAlt);
-      io.KeySuper = Input.GetKeyDown(KeyCode.LeftWindows) || Input.GetKeyDown(KeyCode.RightWindows);
-
-      io.DisplaySize = new System.Numerics.Vector2(Screen.width, Screen.height);
-
-      io.DisplayFramebufferScale = new System.Numerics.Vector2(2f, 2f);
-
-      io.MousePos = new System.Numerics.Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-
-      io.MouseDown[0] = Input.GetMouseButton(0);
-      io.MouseDown[1] = Input.GetMouseButton(1);
-      io.MouseDown[2] = Input.GetMouseButton(2);
-
-      if (io.MouseDown[0])
-      {
-        Debug.Log($"{io.MousePos.X} : {io.MousePos.Y} ({Screen.width} : {Screen.height})");
-      }
-
-      var scrollDelta = Input.mouseScrollDelta.y;// mouse.ScrollWheelValue - _scrollWheelValue;
-      io.MouseWheel = scrollDelta > 0 ? 1 : scrollDelta < 0 ? -1 : 0;
-    }
-
-    #endregion Setup & Update
-
-    #region Internals
-
-    /// <summary>
-    /// Gets the geometry as set up by ImGui and sends it to the graphics device
-    /// </summary>
-    private void RenderDrawData(ImDrawDataPtr drawData)
-    {
-      // Setup render state: alpha-blending enabled, no face culling, no depth testing, scissor enabled, vertex/texcoord/color pointers
-      // Handle cases of screen coordinates != from framebuffer coordinates (e.g. retina displays)
       drawData.ScaleClipRects(ImGui.GetIO().DisplayFramebufferScale);
-
       UpdateBuffers(drawData);
-
       RenderCommandLists(drawData);
     }
 
-    int DrawVertDeclarationSize { get { return /* sizeof(Vector2) */ 8 + /* sizeof(Vector2) */ 8 + /* sizeof(Vector4) */ 4; } }
 
-    private unsafe void UpdateBuffers(ImDrawDataPtr drawData)
+    unsafe void UpdateBuffers(ImDrawDataPtr drawData)
     {
       if (drawData.TotalVtxCount == 0)
-      {
         return;
-      }
 
-      // Expand buffers if we need more room
+      const int DrawVertDeclarationSize =
+          /* sizeof(Vector2) */ 8
+        + /* sizeof(Vector2) */ 8
+        + /* sizeof(Vector4) */ 4;
+
+
       if (_vertexBufferPinned == null || drawData.TotalVtxCount > _vertexBufferPinned.Size)
       {
         _vertexBufferPinned?.Release();
@@ -244,7 +270,6 @@ namespace ImGuiNET.Unity
         _indexBufferPinned = new ComputeBufferPinned((int)(drawData.TotalIdxCount * 1.5f), 4);
       }
 
-      // Copy ImGui's vertices and indices to a set of managed byte arrays
       int vtxOffset = 0;
       int idxOffset = 0;
 
@@ -263,22 +288,22 @@ namespace ImGuiNET.Unity
         idxOffset += cmdList.IdxBuffer.Size;
       }
 
-      // Copy the managed byte arrays to the gpu vertex- and index buffers
       _vertexBufferPinned.UpdateData();
       _indexBufferPinned.UpdateData();
     }
 
-    private unsafe void RenderCommandLists(ImDrawDataPtr drawData)
+    unsafe void RenderCommandLists(ImDrawDataPtr drawData)
     {
+      if (_indexBufferPinned == null)
+        return;
+
       var io = ImGui.GetIO();
 
       _props.SetBuffer("_indexBuffer", _indexBufferPinned.ComputeBuffer);
       _props.SetBuffer("_vertexBuffer", _vertexBufferPinned.ComputeBuffer);
 
-
       int vtxOffset = 0;
       int idxOffset = 0;
-
 
       for (int n = 0; n < drawData.CmdListsCount; n++)
       {
@@ -300,7 +325,6 @@ namespace ImGuiNET.Unity
 
           _props.SetMatrix("projection", Matrix4x4.Ortho(offset, io.DisplaySize.X + offset, offset, io.DisplaySize.Y + offset, -1f, 1f));
 
-
           Graphics.DrawProcedural(_material, new Bounds(Vector2.zero, Vector3.one * 1000.0f), MeshTopology.Triangles, (int)drawCmd.ElemCount, 1, Camera.main, _props);
 
           idxOffset += (int)drawCmd.ElemCount;
@@ -308,6 +332,96 @@ namespace ImGuiNET.Unity
         vtxOffset += cmdList.VtxBuffer.Size;
       }
     }
-    #endregion Internals
+  }
+
+  public class ImGuiRendererNative : ImGuiRendererBase
+  {
+    enum RenderingEventId
+    {
+      NewFrame = 0,
+      Render = 1,
+      Init = 2,
+      Shutdown = 3,
+    }
+
+    public ImGuiRendererNative() : base()
+    {
+      GL.IssuePluginEvent(ImGuiPlugin.GetRenderEventFunc(), (int)RenderingEventId.Init);
+    }
+
+    public override void Finish()
+    {
+      base.Finish();
+      GL.IssuePluginEvent(ImGuiPlugin.GetRenderEventFunc(), (int)RenderingEventId.Shutdown);
+    }
+
+    public override void BeforeLayout()
+    {
+      base.BeforeLayout();
+      GL.IssuePluginEvent(ImGuiPlugin.GetRenderEventFunc(), (int)RenderingEventId.NewFrame);
+    }
+
+    public override void AfterLayout()
+    {
+      base.AfterLayout();
+      GL.IssuePluginEvent(ImGuiPlugin.GetRenderEventFunc(), (int)RenderingEventId.Render);
+    }
+  }
+
+  public interface IImGuiRenderer
+  {
+    void BeforeLayout();
+    void AfterLayout();
+    void Finish();
+  }
+
+  public class ImGuiRenderer : MonoBehaviour
+  {
+    static ImGuiRenderer instance = null;
+    public static ImGuiRenderer Get(GameObject obj = null)
+    {
+      if (obj == null)
+      {
+        obj = new GameObject("_imgui");
+      }
+      if (instance == null)
+      {
+        instance = obj.AddComponent<ImGuiRenderer>();
+      }
+      return instance;
+    }
+    IImGuiRenderer _renderer;
+    public delegate void ImGuiLayoutDelegate();
+    public ImGuiLayoutDelegate Layout;
+
+    void Start()
+    {
+      if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Direct3D11)
+      {
+        _renderer = new ImGuiRendererNative();
+      }
+      else
+      {
+        _renderer = new ImGuiRendererUnity();
+      }
+      StartCoroutine("CallPluginAtEndOfFrames");
+    }
+
+    IEnumerator CallPluginAtEndOfFrames()
+    {
+      while (true)
+      {
+        yield return new WaitForEndOfFrame();
+        _renderer.BeforeLayout();
+        Layout();
+        _renderer.AfterLayout();
+
+      }
+    }
+
+    void OnDisable()
+    {
+      _renderer.Finish();
+    }
   }
 }

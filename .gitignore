@@ -31,6 +31,8 @@
 *.out
 *.app
 
+/ImGuiUnityProject/Assets/ImGui/Dev
+
 Plugin/build*
 Plugin/external/cimgui
 Plugin/external/ImGui.NET

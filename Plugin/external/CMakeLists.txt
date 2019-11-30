@@ -56,17 +56,7 @@ ApplyPatch("ImGui.NET" ${MYROOTDIR}/external/imgui_dot_net.patch)
 add_subdirectory(cimgui)
 set(IMGUI_DIR "${MYROOTDIR}/external/cimgui/imgui")
 
-add_library(imgui STATIC
-  ${IMGUI_DIR}/imconfig.h
-  ${IMGUI_DIR}/imgui_draw.cpp
-  ${IMGUI_DIR}/imgui_demo.cpp
-  ${IMGUI_DIR}/imgui_internal.h
-  ${IMGUI_DIR}/imgui_widgets.cpp
-  ${IMGUI_DIR}/imgui.cpp
-  ${IMGUI_DIR}/imgui.h
-  ${IMGUI_DIR}/imstb_rectpack.h
-  ${IMGUI_DIR}/imstb_textedit.h
-  ${IMGUI_DIR}/imstb_truetype.h
-)
-target_compile_definitions(imgui PUBLIC "ImDrawIdx=int")
+target_include_directories(cimgui PUBLIC ${IMGUI_DIR})
 target_compile_definitions(cimgui PUBLIC "ImDrawIdx=int")
+target_compile_definitions(cimgui PUBLIC "IMGUI_API=__declspec(dllexport)")
+

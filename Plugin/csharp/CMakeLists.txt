@@ -1,9 +1,14 @@
 cmake_minimum_required(VERSION 3.8)
 project("ImGui.NET" CSharp)
+set(CMAKE_CSharp_FLAGS "/langversion:7")
+
+set(IMGUI_UNITY_SOURCES
+  UnityScripts/ImGuiRenderer.cs
+  UnityScripts/ComputeBufferPinned.cs
+  UnityScripts/PinnedArray.cs
+)
 
 set(IMGUI_NET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../external/ImGui.NET/src/ImGui.NET")
-
-
 add_library(ImGui.NET SHARED
   ${IMGUI_NET_DIR}/ImDrawData.Manual.cs    
   ${IMGUI_NET_DIR}/ImDrawList.Manual.cs    
@@ -68,37 +73,34 @@ add_library(ImGui.NET SHARED
   ${IMGUI_NET_DIR}/Generated/ImGuiWindowFlags.gen.cs
 )
 
-set_property(TARGET ImGui.NET PROPERTY VS_DOTNET_REFERENCES
+set(COMMON_DOTNET_REFS
   "Microsoft.CSharp"
   "System"
-  "System.Numerics"
-  "System.Numerics.Vectors"
   "System.Core"
+  "System.Numerics"
+)
+set_property(TARGET ImGui.NET PROPERTY VS_DOTNET_REFERENCES
+  ${COMMON_DOTNET_REFS}
+  "System.Numerics.Vectors"
 )
 
 set(COMPILER_SERVICES_DLL "${CMAKE_CURRENT_SOURCE_DIR}/dll/System.Runtime.CompilerServices.Unsafe.dll")
 set_property(TARGET ImGui.NET PROPERTY VS_DOTNET_REFERENCE_System.Runtime.CompilerServices.Unsafe ${COMPILER_SERVICES_DLL})
 
-target_compile_options(ImGui.NET PUBLIC "/unsafe")
 
-add_library(ImGuiUnityIL SHARED 
-  UnityScripts/ImGuiRenderer.cs
-  UnityScripts/ComputeBufferPinned.cs
-)
+add_library(ImGuiUnityIL SHARED ${IMGUI_UNITY_SOURCES})
 
 set_property(TARGET ImGuiUnityIL PROPERTY VS_DOTNET_REFERENCES
-  "Microsoft.CSharp"
-  "System"
+  ${COMMON_DOTNET_REFS}
   "System.Collections"
   "System.Runtime.InteropServices"
-  "System.Numerics"
-  "System.Core"
 )
+
 set_property(TARGET ImGuiUnityIL PROPERTY VS_DOTNET_REFERENCE_UnityEngine ${UNITY_DIR}/Editor/Data/Managed/UnityEngine.dll)
 set_property(TARGET ImGuiUnityIL PROPERTY VS_DOTNET_REFERENCE_ImGui.NET ${CMAKE_CURRENT_BINARY_DIR}/ImGui.NET.dll)
 
+target_compile_options(ImGui.NET PUBLIC "/unsafe")
 target_compile_options(ImGuiUnityIL PUBLIC "/unsafe")
-set(CMAKE_CSharp_FLAGS "/langversion:7")
 
 add_custom_command(TARGET ImGuiUnityIL POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E remove -f

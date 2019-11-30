@@ -17,34 +17,21 @@ public class ImguTester : MonoBehaviour
   private System.Numerics.Vector3 clear_color = new System.Numerics.Vector3(114f / 255f, 144f / 255f, 154f / 255f);
   private byte[] _textBuffer = new byte[100];
 
-  // Start is called before the first frame update
+  Camera _camera = null;
   void Start()
   {
-    _imGuiRenderer = new ImGuiRenderer(this);
-    _imGuiRenderer.RebuildFontAtlas();
+    _imGuiRenderer = ImGuiRenderer.Get();
+    _imGuiRenderer.Layout += ImGuiLayout2;
+
+    _camera = Camera.main;
   }
 
-  // Update is called once per frame
   void Update()
   {
-    // GraphicsDevice.Clear(new Color(clear_color.X, clear_color.Y, clear_color.Z));
-
-    // Call BeforeLayout first to set things up
-    _imGuiRenderer.BeforeLayout();
-
-    // Draw our UI
-    ImGuiLayout();
-
-    // Call AfterLayout now to finish up and draw all the things
-    _imGuiRenderer.AfterLayout();
+    _camera.backgroundColor = new Color(clear_color.X, clear_color.Y, clear_color.Z);
   }
 
-  void OnDisable()
-  {
-    _imGuiRenderer.Finish();
-  }
-
-  void ImGuiLayout()
+  void ImGuiLayout2()
   {
     // 1. Show a simple window
     // Tip: if we don't call ImGui.Begin()/ImGui.End() the widgets appears in a window automatically called "Debug"
@@ -62,9 +49,8 @@ public class ImguTester : MonoBehaviour
 
       ImGui.InputText("Text input", _textBuffer, 100);
 
-      ImGui.Text($"Texture sample {Time.time}");
-      // ImGui.Image(_imGuiTexture, new Num.Vector2(300, 150), Num.Vector2.Zero, Num.Vector2.One, Num.Vector4.One, Num.Vector4.One); 
-      // Here, the previously loaded texture is used
+      ImGui.Text($"Texture sample {ImGui.GetTime()}");
+      ImGui.Text($"Texture sample {ImGui.IsKeyDown((int)KeyCode.A)}");
     }
 
     // 2. Show another simple window, this time using an explicit Begin/End pair
@@ -82,7 +68,5 @@ public class ImguTester : MonoBehaviour
       ImGui.SetNextWindowPos(new Num.Vector2(650, 20), ImGuiCond.FirstUseEver);
       ImGui.ShowDemoWindow(ref show_test_window);
     }
-
   }
-
 }

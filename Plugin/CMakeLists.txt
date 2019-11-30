@@ -12,11 +12,27 @@ set(MYROOTDIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(external)
 
 add_library(ImGuiUnity SHARED
-  src/plugin.cpp
+  include/Unity/IUnityGraphics.h
+  include/Unity/IUnityGraphicsD3D11.h
+  include/Unity/IUnityInterface.h
+
+  include/PlatformBase.h
+
+  src/RenderAPI_D3D11.cpp
+  src/RenderAPI.h
+  src/RenderAPI.cpp
+
+  src/RenderingPlugin.cpp
+  
+  src/imgui_impl_dx11.h
+  src/imgui_impl_dx11.cpp
+  src/Plugin.cpp
 )
 
 target_include_directories(ImGuiUnity PUBLIC include)
-target_link_libraries(ImGuiUnity PUBLIC imgui)
+target_link_libraries(ImGuiUnity PUBLIC cimgui) 
+target_compile_definitions(ImGuiUnity PUBLIC "IMGUI_IMPL_API")
+target_compile_definitions(ImGuiUnity PUBLIC "ImDrawIdx=int")
 
 add_subdirectory(csharp)
 
@@ -29,7 +45,6 @@ function (ConfigOutput target_name)
                         LIBRARY_OUTPUT_DIRECTORY_RELEASE ${BIN_OUT_RELEASE})
 endfunction()
 
-ConfigOutput(imgui) 
 ConfigOutput(ImGuiUnity) 
 ConfigOutput(cimgui)
 ConfigOutput(ImGui.NET)
