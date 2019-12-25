@@ -40,7 +40,7 @@ namespace ImGuiNET.Unity
     public static extern IntPtr GetRenderEventFunc();
   }
 
-  class ImGuiIOController
+  public class ImGuiIOController
   {
     PinnedArray<int> _keyMap;
     PinnedArray<int> _keyDown;
@@ -101,12 +101,21 @@ namespace ImGuiNET.Unity
       }
     }
 
-    public void UpdateInput()
+    public void Update()
     {
       for (int i = 0; i < _keyDown.Length; i++)
       {
-        _keyDown[i] = Input.GetKey((KeyCode)_unityKeyMap[i]) ? 1 : 0;
+        _keyDown[i] = Input.GetKey((KeyCode)i) ? 1 : 0;
       }
+
+      var io = ImGui.GetIO();
+      if (Input.inputString.Length > 0) {
+        foreach (char c in Input.inputString)
+        {
+          io.AddInputCharacter(c);
+        }
+      }
+
       ImGuiPlugin.UploadKeyDownStates(_keyDown.Array, _keyDown.Length);
 
       var mouseWheel = Input.GetAxis("Mouse ScrollWheel");
@@ -141,21 +150,10 @@ namespace ImGuiNET.Unity
 
   public abstract class ImGuiRendererBase : IImGuiRenderer
   {
-    ImGuiIOController _ioController;
-
-    public ImGuiRendererBase()
-    {
-      _ioController = new ImGuiIOController();
-    }
-
-    public virtual void Finish()
-    {
-      _ioController.Free();
-    }
+    public abstract void Finish();
 
     public virtual void BeforeLayout()
     {
-      _ioController.UpdateInput();
       ImGui.NewFrame();
     }
 
@@ -192,8 +190,6 @@ namespace ImGuiNET.Unity
 
     public override void Finish()
     {
-      base.Finish();
-
       if (_vertexBufferPinned != null)
         _vertexBufferPinned.Release();
       if (_indexBufferPinned != null)
@@ -351,7 +347,6 @@ namespace ImGuiNET.Unity
 
     public override void Finish()
     {
-      base.Finish();
       GL.IssuePluginEvent(ImGuiPlugin.GetRenderEventFunc(), (int)RenderingEventId.Shutdown);
     }
 
@@ -375,6 +370,27 @@ namespace ImGuiNET.Unity
     void Finish();
   }
 
+  public class ImGuiInstance {
+    public IImGuiRenderer Renderer { get { return _renderer; } }
+    public ImGuiIOController Input { get { return _inputController; } }
+    
+    public ImGuiInstance() {
+      // TODO: Add other platforms to the native renderer.
+      if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Direct3D11)
+      {
+        _renderer = new ImGuiRendererNative();
+      }
+      else
+      {
+        _renderer = new ImGuiRendererUnity();
+      }
+      _inputController = new ImGuiIOController();
+    }
+
+    IImGuiRenderer _renderer;
+    ImGuiIOController _inputController;
+  }
+
   public class ImGuiRenderer : MonoBehaviour
   {
     static ImGuiRenderer instance = null;
@@ -390,20 +406,14 @@ namespace ImGuiNET.Unity
       }
       return instance;
     }
-    IImGuiRenderer _renderer;
+    ImGuiInstance _imgui;
+
     public delegate void ImGuiLayoutDelegate();
     public ImGuiLayoutDelegate Layout;
 
     void Start()
     {
-      if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Direct3D11)
-      {
-        _renderer = new ImGuiRendererNative();
-      }
-      else
-      {
-        _renderer = new ImGuiRendererUnity();
-      }
+      _imgui = new ImGuiInstance();
       StartCoroutine("CallPluginAtEndOfFrames");
     }
 
@@ -412,16 +422,21 @@ namespace ImGuiNET.Unity
       while (true)
       {
         yield return new WaitForEndOfFrame();
-        _renderer.BeforeLayout();
+        _imgui.Renderer.BeforeLayout();
         Layout();
-        _renderer.AfterLayout();
+        _imgui.Renderer.AfterLayout();
 
       }
     }
 
+    void Update() {
+      _imgui.Input.Update();
+    }
+
     void OnDisable()
     {
-      _renderer.Finish();
+      _imgui.Input.Free();
+      _imgui.Renderer.Finish();
     }
   }
 }
