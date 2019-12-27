@@ -47,9 +47,6 @@ namespace ImGuiNET.Unity
     int[] _unityKeyMap;
     public ImGuiIOController()
     {
-      var context = ImGui.CreateContext();
-      ImGui.SetCurrentContext(context);
-
       var io = ImGui.GetIO();
       io.ConfigFlags |= ImGuiConfigFlags.NavEnableSetMousePos;
       io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
@@ -375,6 +372,10 @@ namespace ImGuiNET.Unity
     public ImGuiIOController Input { get { return _inputController; } }
     
     public ImGuiInstance() {
+      var context = ImGui.CreateContext();
+      ImGui.SetCurrentContext(context);
+
+      _inputController = new ImGuiIOController();
       // TODO: Add other platforms to the native renderer.
       if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Direct3D11)
       {
@@ -384,7 +385,6 @@ namespace ImGuiNET.Unity
       {
         _renderer = new ImGuiRendererUnity();
       }
-      _inputController = new ImGuiIOController();
     }
 
     IImGuiRenderer _renderer;
