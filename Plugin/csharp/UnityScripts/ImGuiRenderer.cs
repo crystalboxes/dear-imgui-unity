@@ -369,13 +369,13 @@ namespace ImGuiNET.Unity
 
   public class ImGuiInstance {
     public IImGuiRenderer Renderer { get { return _renderer; } }
-    public ImGuiIOController Input { get { return _inputController; } }
+    public ImGuiIOController Input { get { return _input; } }
     
     public ImGuiInstance() {
-      var context = ImGui.CreateContext();
-      ImGui.SetCurrentContext(context);
+      _context = ImGui.CreateContext();
+      ImGui.SetCurrentContext(_context);
 
-      _inputController = new ImGuiIOController();
+      _input = new ImGuiIOController();
       // TODO: Add other platforms to the native renderer.
       if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Direct3D11)
       {
@@ -387,8 +387,15 @@ namespace ImGuiNET.Unity
       }
     }
 
+    public void Destroy() {
+      _input.Free();
+      _renderer.Finish();
+      ImGui.DestroyContext(_context);
+    }
+
+    IntPtr _context;
     IImGuiRenderer _renderer;
-    ImGuiIOController _inputController;
+    ImGuiIOController _input;
   }
 
   public class ImGuiRenderer : MonoBehaviour
@@ -435,8 +442,7 @@ namespace ImGuiNET.Unity
 
     void OnDisable()
     {
-      _imgui.Input.Free();
-      _imgui.Renderer.Finish();
+      _imgui.Destroy();
     }
   }
 }
